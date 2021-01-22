@@ -1,9 +1,5 @@
 // Read and write vorbiscomment metadata
 
-extern crate byteorder;
-extern crate lewton;
-extern crate ogg;
-
 use ogg::writing::PacketWriteEndInfo;
 use ogg::{Packet, PacketReader, PacketWriter};
 use std::convert::TryInto;

@@ -1,6 +1,4 @@
-// Read and write vorbiscomment metadata
-
-extern crate oggvorbismeta;
+/// Read and write vorbiscomment metadata.
 
 use oggvorbismeta::{read_comment_header, replace_comment_header, CommentHeader, VorbisComments};
 use std::env;
@@ -12,7 +10,7 @@ fn main() {
     let file_out = env::args().nth(2).expect("Please specify an output file.");
     println!("Opening files: {}, {}", file_in, file_out);
 
-    //open files
+    // Open files
     let mut f_in_disk = File::open(file_in).expect("Can't open file");
     let mut f_in_ram: Vec<u8> = vec![];
 
