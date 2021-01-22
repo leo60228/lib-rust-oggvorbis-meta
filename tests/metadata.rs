@@ -1,9 +1,8 @@
-use lewton;
-use oggvorbismeta;
 use oggvorbismeta::{
     make_comment_header, read_comment_header, replace_comment_header, CommentHeader, VorbisComments,
 };
 use std::fs::File;
+use std::io::{Cursor, Seek, SeekFrom};
 
 fn make_header() -> CommentHeader {
     let mut new_comment = CommentHeader::new();
@@ -84,7 +83,7 @@ fn test_clear() {
 #[test]
 fn test_pack_unpack() {
     let header = make_header();
-    let binary_header = make_comment_header(&header);
+    let binary_header = make_comment_header(&header).unwrap();
     let unpacked = lewton::header::read_header_comment(&binary_header).unwrap();
     assert_eq!(unpacked.get_tag_names().len(), 5);
     assert_eq!(unpacked.get_vendor(), "Ogg".to_string());
@@ -93,7 +92,7 @@ fn test_pack_unpack() {
 #[test]
 fn test_read_from_file() {
     let f_in = File::open("tests/noise.ogg").expect("Can't open file");
-    let read_comments = read_comment_header(f_in);
+    let read_comments = read_comment_header(f_in).unwrap();
     assert_eq!(
         read_comments.get_tag_single("title").unwrap(),
         "Noise".to_string()
@@ -104,8 +103,10 @@ fn test_read_from_file() {
 fn test_update_file() {
     let f_in = File::open("tests/noise.ogg").expect("Can't open file");
     let new_header = make_header();
-    let f_out = replace_comment_header(f_in, new_header);
-    let unpacked = read_comment_header(f_out);
+    let mut f_out = Cursor::new(vec![]);
+    replace_comment_header(f_in, &mut f_out, new_header).unwrap();
+    f_out.seek(SeekFrom::Start(0)).unwrap();
+    let unpacked = read_comment_header(f_out).unwrap();
     assert_eq!(unpacked.get_tag_names().len(), 5);
     assert_eq!(unpacked.get_vendor(), "Ogg".to_string());
 }
