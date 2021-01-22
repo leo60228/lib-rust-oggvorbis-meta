@@ -6,7 +6,7 @@ use anyhow::Result;
 use ogg::writing::PacketWriteEndInfo;
 use ogg::{Packet, PacketReader, PacketWriter};
 use std::convert::TryInto;
-use std::io::{Cursor, Read, Seek};
+use std::io::{Read, Seek, Write};
 
 /// A comment header.
 pub type CommentHeader = lewton::header::CommentHeader;
@@ -167,17 +167,15 @@ pub fn read_comment_header<T: Read + Seek>(f_in: T) -> Result<CommentHeader> {
 }
 
 /// Replace the comment header of a file.
-pub fn replace_comment_header<T: Read + Seek>(
-    f_in: T,
+pub fn replace_comment_header<R: Read + Seek, W: Write + Seek>(
+    f_in: R,
+    f_out: W,
     new_header: CommentHeader,
-) -> Result<Cursor<Vec<u8>>> {
+) -> Result<()> {
     let mut new_comment_data = Some(make_comment_header(&new_header)?);
 
-    let f_out: Vec<u8> = vec![];
-    let mut f_out = Cursor::new(f_out);
-
     let mut reader = PacketReader::new(f_in);
-    let mut writer = PacketWriter::new(&mut f_out);
+    let mut writer = PacketWriter::new(f_out);
 
     while let Some(mut packet) = reader.read_packet()? {
         let inf = if packet.last_in_stream() {
@@ -212,6 +210,5 @@ pub fn replace_comment_header<T: Read + Seek>(
         }
     }
 
-    f_out.seek(std::io::SeekFrom::Start(0))?;
-    Ok(f_out)
+    Ok(())
 }
