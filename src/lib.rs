@@ -1,22 +1,45 @@
-// Read and write vorbiscomment metadata
+//! Read and write vorbiscomment metadata.
+
+#![warn(missing_docs)]
 
 use ogg::writing::PacketWriteEndInfo;
 use ogg::{Packet, PacketReader, PacketWriter};
 use std::convert::TryInto;
 use std::io::{Cursor, Read, Seek};
 
+/// A comment header.
 pub type CommentHeader = lewton::header::CommentHeader;
 
+/// A holder of Vorbis comments.
 pub trait VorbisComments {
-    fn from(vendor: String, comment_list: Vec<(String, String)>) -> CommentHeader;
+    /// Construct a VorbisComments from its contents.
+    fn from(vendor: String, comment_list: Vec<(String, String)>) -> Self;
+
+    /// Create an empty VorbisContents.
     fn new() -> Self;
+
+    /// Get all tag names used.
     fn get_tag_names(&self) -> Vec<String>;
+
+    /// Get one tag.
     fn get_tag_single(&self, tag: &str) -> Option<String>;
+
+    /// Get one instance of a tag.
     fn get_tag_multi(&self, tag: &str) -> Vec<String>;
+
+    /// Remove a tag.
     fn clear_tag(&mut self, tag: &str);
+
+    /// Add a tag.
     fn add_tag_single(&mut self, tag: &str, value: &str);
+
+    /// Add multiple instances of a tag.
     fn add_tag_multi(&mut self, tag: &str, values: &[&str]);
+
+    /// Get the vendor.
     fn get_vendor(&self) -> String;
+
+    /// Set the vendor.
     fn set_vendor(&mut self, vend: &str);
 }
 
@@ -90,6 +113,7 @@ impl VorbisComments for CommentHeader {
     }
 }
 
+/// Write out a comment header.
 pub fn make_comment_header(header: &CommentHeader) -> Vec<u8> {
     // Signature
     let start = [3u8, 118, 111, 114, 98, 105, 115];
@@ -133,6 +157,7 @@ pub fn make_comment_header(header: &CommentHeader) -> Vec<u8> {
     new_packet
 }
 
+/// Read a comment header.
 pub fn read_comment_header<T: Read + Seek>(f_in: T) -> CommentHeader {
     let mut reader = PacketReader::new(f_in);
 
@@ -148,6 +173,7 @@ pub fn read_comment_header<T: Read + Seek>(f_in: T) -> CommentHeader {
     lewton::header::read_header_comment(&packet.data).unwrap()
 }
 
+/// Replace the comment header of a file.
 pub fn replace_comment_header<T: Read + Seek>(
     f_in: T,
     new_header: CommentHeader,

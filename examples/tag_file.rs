@@ -1,5 +1,4 @@
 /// Read and write vorbiscomment metadata.
-
 use oggvorbismeta::{read_comment_header, replace_comment_header, CommentHeader, VorbisComments};
 use std::env;
 use std::fs::File;
