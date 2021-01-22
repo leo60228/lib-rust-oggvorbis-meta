@@ -15,13 +15,13 @@ pub type CommentHeader = lewton::header::CommentHeader;
 //type VorbisComments = CommentHeader;
 pub trait VorbisComments {
     fn from(vendor: String, comment_list: Vec<(String, String)>) -> CommentHeader;
-    fn new() -> CommentHeader;
+    fn new() -> Self;
     fn get_tag_names(&self) -> Vec<String>;
     fn get_tag_single(&self, tag: &str) -> Option<String>;
     fn get_tag_multi(&self, tag: &str) -> Vec<String>;
     fn clear_tag(&mut self, tag: &str);
     fn add_tag_single(&mut self, tag: &str, value: &str);
-    fn add_tag_multi(&mut self, tag: &str, values: &Vec<&str>);
+    fn add_tag_multi(&mut self, tag: &str, values: &[&str]);
     fn get_vendor(&self) -> String;
     fn set_vendor(&mut self, vend: &str);
 }
@@ -54,12 +54,11 @@ impl VorbisComments for CommentHeader {
 
     fn get_tag_single(&self, tag: &str) -> Option<String> {
         let tags = self.get_tag_multi(tag);
-        let result = if tags.len() > 0 {
+        if !tags.is_empty() {
             Some(tags[0].to_string())
         } else {
             None
-        };
-        result
+        }
     }
 
     fn get_tag_multi(&self, tag: &str) -> Vec<String> {
@@ -81,7 +80,7 @@ impl VorbisComments for CommentHeader {
             .push((tag.to_string().to_lowercase(), value.to_string()));
     }
 
-    fn add_tag_multi(&mut self, tag: &str, values: &Vec<&str>) {
+    fn add_tag_multi(&mut self, tag: &str, values: &[&str]) {
         for value in values.iter() {
             self.comment_list
                 .push((tag.to_string().to_lowercase(), value.to_string()));
@@ -153,9 +152,8 @@ pub fn read_comment_header<T: Read + Seek>(f_in: T) -> CommentHeader {
         packet = reader.read_packet_expected().unwrap();
         //println!("{:?}",packet.data);
     }
-    let comment_hdr = lewton::header::read_header_comment(&packet.data).unwrap();
-    //println!("{:?}", comment_hdr);
-    comment_hdr
+
+    lewton::header::read_header_comment(&packet.data).unwrap()
 }
 
 pub fn replace_comment_header<T: Read + Seek>(
