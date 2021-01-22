@@ -22,10 +22,10 @@ pub trait VorbisComments {
     fn get_tag_names(&self) -> Vec<String>;
 
     /// Get one tag.
-    fn get_tag_single(&self, tag: &str) -> Option<String>;
+    fn get_tag_single(&self, tag: &str) -> Option<&str>;
 
     /// Get one instance of a tag.
-    fn get_tag_multi(&self, tag: &str) -> Vec<String>;
+    fn get_tag_multi(&self, tag: &str) -> Vec<&str>;
 
     /// Remove a tag.
     fn clear_tag(&mut self, tag: &str);
@@ -37,7 +37,7 @@ pub trait VorbisComments {
     fn add_tag_multi(&mut self, tag: &str, values: &[&str]);
 
     /// Get the vendor.
-    fn get_vendor(&self) -> String;
+    fn get_vendor(&self) -> &str;
 
     /// Set the vendor.
     fn set_vendor(&mut self, vend: &str);
@@ -69,43 +69,42 @@ impl VorbisComments for CommentHeader {
         names
     }
 
-    fn get_tag_single(&self, tag: &str) -> Option<String> {
+    fn get_tag_single(&self, tag: &str) -> Option<&str> {
         let tags = self.get_tag_multi(tag);
         if !tags.is_empty() {
-            Some(tags[0].to_string())
+            Some(tags[0])
         } else {
             None
         }
     }
 
-    fn get_tag_multi(&self, tag: &str) -> Vec<String> {
+    fn get_tag_multi(&self, tag: &str) -> Vec<&str> {
         self.comment_list
-            .clone()
             .iter()
-            .filter(|comment| comment.0.to_lowercase() == tag.to_string().to_lowercase())
-            .map(|comment| comment.1.clone())
-            .collect::<Vec<String>>()
+            .filter(|comment| comment.0.to_lowercase() == tag.to_lowercase())
+            .map(|comment| &*comment.1)
+            .collect::<Vec<&str>>()
     }
 
     fn clear_tag(&mut self, tag: &str) {
         self.comment_list
-            .retain(|comment| comment.0.to_lowercase() != tag.to_string().to_lowercase());
+            .retain(|comment| comment.0.to_lowercase() != tag.to_lowercase());
     }
 
     fn add_tag_single(&mut self, tag: &str, value: &str) {
         self.comment_list
-            .push((tag.to_string().to_lowercase(), value.to_string()));
+            .push((tag.to_lowercase(), value.to_string()));
     }
 
     fn add_tag_multi(&mut self, tag: &str, values: &[&str]) {
         for value in values.iter() {
             self.comment_list
-                .push((tag.to_string().to_lowercase(), value.to_string()));
+                .push((tag.to_lowercase(), value.to_string()));
         }
     }
 
-    fn get_vendor(&self) -> String {
-        self.vendor.to_string()
+    fn get_vendor(&self) -> &str {
+        &self.vendor
     }
 
     fn set_vendor(&mut self, vend: &str) {
