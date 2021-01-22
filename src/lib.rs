@@ -2,7 +2,7 @@
 
 #![warn(missing_docs)]
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use ogg::writing::PacketWriteEndInfo;
 use ogg::{Packet, PacketReader, PacketWriter};
 use std::convert::TryInto;
@@ -135,19 +135,15 @@ pub fn make_comment_header(header: &CommentHeader) -> Result<Vec<u8>> {
     new_packet.extend(vendor.iter().cloned());
 
     // Write number of comments
-    let comment_nbr: u32 = header.comment_list.len().try_into()?;
-    new_packet.extend(comment_nbr.to_le_bytes().iter().cloned());
+    let comment_num: u32 = header.comment_list.len().try_into()?;
+    new_packet.extend(comment_num.to_le_bytes().iter().cloned());
 
-    let mut commentstrings: Vec<String> = vec![];
     // Write each comment
     for comment in header.comment_list.iter() {
-        commentstrings.push(format!("{}={}", comment.0, comment.1));
-        let comment_string = commentstrings
-            .last()
-            .context("Couldn't get comment string!")?;
-        let comment_len: u32 = comment_string.as_bytes().len().try_into()?;
-        new_packet.extend(comment_len.to_le_bytes().iter().cloned());
-        new_packet.extend(comment_string.as_bytes().iter().cloned());
+        let comment_string = format!("{}={}", comment.0, comment.1);
+        let comment_len: u32 = comment_string.len().try_into()?;
+        new_packet.extend(comment_len.to_le_bytes().iter().copied());
+        new_packet.extend(comment_string.as_bytes().iter().copied());
     }
     new_packet.push(end);
 
