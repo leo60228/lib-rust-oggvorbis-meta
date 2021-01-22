@@ -2,6 +2,7 @@
 
 #![warn(missing_docs)]
 
+use anyhow::{Context, Result};
 use ogg::writing::PacketWriteEndInfo;
 use ogg::{Packet, PacketReader, PacketWriter};
 use std::convert::TryInto;
@@ -113,13 +114,13 @@ impl VorbisComments for CommentHeader {
 }
 
 /// Write out a comment header.
-pub fn make_comment_header(header: &CommentHeader) -> Vec<u8> {
+pub fn make_comment_header(header: &CommentHeader) -> Result<Vec<u8>> {
     // Signature
     let start = [3u8, 118, 111, 114, 98, 105, 115];
 
     // Vendor number of bytes as u32
     let vendor = header.vendor.as_bytes();
-    let vendor_len: u32 = vendor.len().try_into().unwrap();
+    let vendor_len: u32 = vendor.len().try_into()?;
 
     // End byte
     let end: u8 = 1;
@@ -134,50 +135,47 @@ pub fn make_comment_header(header: &CommentHeader) -> Vec<u8> {
     new_packet.extend(vendor.iter().cloned());
 
     // Write number of comments
-    let comment_nbr: u32 = header.comment_list.len().try_into().unwrap();
+    let comment_nbr: u32 = header.comment_list.len().try_into()?;
     new_packet.extend(comment_nbr.to_le_bytes().iter().cloned());
 
     let mut commentstrings: Vec<String> = vec![];
     // Write each comment
     for comment in header.comment_list.iter() {
         commentstrings.push(format!("{}={}", comment.0, comment.1));
-        let comment_len: u32 = commentstrings
+        let comment_string = commentstrings
             .last()
-            .unwrap()
-            .as_bytes()
-            .len()
-            .try_into()
-            .unwrap();
+            .context("Couldn't get comment string!")?;
+        let comment_len: u32 = comment_string.as_bytes().len().try_into()?;
         new_packet.extend(comment_len.to_le_bytes().iter().cloned());
-        new_packet.extend(commentstrings.last().unwrap().as_bytes().iter().cloned());
+        new_packet.extend(comment_string.as_bytes().iter().cloned());
     }
     new_packet.push(end);
 
-    new_packet
+    Ok(new_packet)
 }
 
 /// Read a comment header.
-pub fn read_comment_header<T: Read + Seek>(f_in: T) -> CommentHeader {
+pub fn read_comment_header<T: Read + Seek>(f_in: T) -> Result<CommentHeader> {
     let mut reader = PacketReader::new(f_in);
 
-    let packet: Packet = reader.read_packet_expected().unwrap();
+    let packet: Packet = reader.read_packet_expected()?;
     let stream_serial = packet.stream_serial();
 
-    let mut packet: Packet = reader.read_packet_expected().unwrap();
+    let mut packet: Packet = reader.read_packet_expected()?;
 
     while packet.stream_serial() != stream_serial {
-        packet = reader.read_packet_expected().unwrap();
+        packet = reader.read_packet_expected()?;
     }
 
-    lewton::header::read_header_comment(&packet.data).unwrap()
+    Ok(lewton::header::read_header_comment(&packet.data)?)
 }
 
 /// Replace the comment header of a file.
 pub fn replace_comment_header<T: Read + Seek>(
     f_in: T,
     new_header: CommentHeader,
-) -> Cursor<Vec<u8>> {
-    let new_comment_data = make_comment_header(&new_header);
+) -> Result<Cursor<Vec<u8>>> {
+    let new_comment_data = make_comment_header(&new_header)?;
 
     let f_out_ram: Vec<u8> = vec![];
     let mut f_out = Cursor::new(f_out_ram);
@@ -213,14 +211,12 @@ pub fn replace_comment_header<T: Read + Seek>(
                         let lastpacket = packet.last_in_stream() && packet.last_in_page();
                         let stream_serial = packet.stream_serial();
                         let absgp_page = packet.absgp_page();
-                        writer
-                            .write_packet(
-                                packet.data.into_boxed_slice(),
-                                stream_serial,
-                                inf,
-                                absgp_page,
-                            )
-                            .unwrap();
+                        writer.write_packet(
+                            packet.data.into_boxed_slice(),
+                            stream_serial,
+                            inf,
+                            absgp_page,
+                        )?;
                         if lastpacket {
                             break;
                         }
@@ -235,6 +231,6 @@ pub fn replace_comment_header<T: Read + Seek>(
             }
         }
     }
-    f_out.seek(std::io::SeekFrom::Start(0)).unwrap();
-    f_out
+    f_out.seek(std::io::SeekFrom::Start(0))?;
+    Ok(f_out)
 }
