@@ -171,62 +171,47 @@ pub fn replace_comment_header<T: Read + Seek>(
     f_in: T,
     new_header: CommentHeader,
 ) -> Result<Cursor<Vec<u8>>> {
-    let new_comment_data = make_comment_header(&new_header)?;
+    let mut new_comment_data = Some(make_comment_header(&new_header)?);
 
-    let f_out_ram: Vec<u8> = vec![];
-    let mut f_out = Cursor::new(f_out_ram);
+    let f_out: Vec<u8> = vec![];
+    let mut f_out = Cursor::new(f_out);
 
     let mut reader = PacketReader::new(f_in);
     let mut writer = PacketWriter::new(&mut f_out);
 
-    let mut header_done = false;
-    loop {
-        let rp = reader.read_packet();
-        match rp {
-            Ok(r) => {
-                match r {
-                    Some(mut packet) => {
-                        let inf = if packet.last_in_stream() {
-                            PacketWriteEndInfo::EndStream
-                        } else if packet.last_in_page() {
-                            PacketWriteEndInfo::EndPage
-                        } else {
-                            PacketWriteEndInfo::NormalPacket
-                        };
-                        if !header_done {
-                            let comment_hdr = lewton::header::read_header_comment(&packet.data);
-                            match comment_hdr {
-                                Ok(_hdr) => {
-                                    // This is the packet to replace
-                                    packet.data = new_comment_data.clone();
-                                    header_done = true;
-                                }
-                                Err(_error) => {}
-                            }
-                        }
-                        let lastpacket = packet.last_in_stream() && packet.last_in_page();
-                        let stream_serial = packet.stream_serial();
-                        let absgp_page = packet.absgp_page();
-                        writer.write_packet(
-                            packet.data.into_boxed_slice(),
-                            stream_serial,
-                            inf,
-                            absgp_page,
-                        )?;
-                        if lastpacket {
-                            break;
-                        }
-                    }
-                    // End of stream
-                    None => break,
-                }
-            }
-            Err(error) => {
-                println!("Error reading packet: {:?}", error);
-                break;
+    while let Some(mut packet) = reader.read_packet()? {
+        let inf = if packet.last_in_stream() {
+            PacketWriteEndInfo::EndStream
+        } else if packet.last_in_page() {
+            PacketWriteEndInfo::EndPage
+        } else {
+            PacketWriteEndInfo::NormalPacket
+        };
+
+        if let Some(data) = new_comment_data.take() {
+            if lewton::header::read_header_comment(&packet.data).is_ok() {
+                packet.data = data;
+            } else {
+                new_comment_data = Some(data);
             }
         }
+
+        let last = packet.last_in_stream() && packet.last_in_page();
+
+        let stream_serial = packet.stream_serial();
+        let absgp_page = packet.absgp_page();
+        writer.write_packet(
+            packet.data.into_boxed_slice(),
+            stream_serial,
+            inf,
+            absgp_page,
+        )?;
+
+        if last {
+            break;
+        }
     }
+
     f_out.seek(std::io::SeekFrom::Start(0))?;
     Ok(f_out)
 }
