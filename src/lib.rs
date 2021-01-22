@@ -4,7 +4,6 @@ extern crate byteorder;
 extern crate lewton;
 extern crate ogg;
 
-//use lewton::header::CommentHeader;
 use ogg::writing::PacketWriteEndInfo;
 use ogg::{Packet, PacketReader, PacketWriter};
 use std::convert::TryInto;
@@ -12,7 +11,6 @@ use std::io::{Cursor, Read, Seek};
 
 pub type CommentHeader = lewton::header::CommentHeader;
 
-//type VorbisComments = CommentHeader;
 pub trait VorbisComments {
     fn from(vendor: String, comment_list: Vec<(String, String)>) -> CommentHeader;
     fn new() -> Self;
@@ -97,34 +95,33 @@ impl VorbisComments for CommentHeader {
 }
 
 pub fn make_comment_header(header: &CommentHeader) -> Vec<u8> {
-    //Signature
+    // Signature
     let start = [3u8, 118, 111, 114, 98, 105, 115];
 
-    //Vendor number of bytes as u32
+    // Vendor number of bytes as u32
     let vendor = header.vendor.as_bytes();
     let vendor_len: u32 = vendor.len().try_into().unwrap();
 
-    //end byte
+    // End byte
     let end: u8 = 1;
 
     let mut new_packet: Vec<u8> = vec![];
 
-    //write start
+    // Write start
     new_packet.extend(start.iter().cloned());
 
-    //write vendor
+    // Write vendor
     new_packet.extend(vendor_len.to_le_bytes().iter().cloned());
     new_packet.extend(vendor.iter().cloned());
 
-    //write number of comments
+    // Write number of comments
     let comment_nbr: u32 = header.comment_list.len().try_into().unwrap();
     new_packet.extend(comment_nbr.to_le_bytes().iter().cloned());
 
     let mut commentstrings: Vec<String> = vec![];
-    //write each comment
+    // Write each comment
     for comment in header.comment_list.iter() {
         commentstrings.push(format!("{}={}", comment.0, comment.1));
-        //let commenstrings.last().as_bytes();
         let comment_len: u32 = commentstrings
             .last()
             .unwrap()
@@ -136,7 +133,7 @@ pub fn make_comment_header(header: &CommentHeader) -> Vec<u8> {
         new_packet.extend(commentstrings.last().unwrap().as_bytes().iter().cloned());
     }
     new_packet.push(end);
-    //println!("{:?}",new_packet);
+
     new_packet
 }
 
@@ -147,10 +144,9 @@ pub fn read_comment_header<T: Read + Seek>(f_in: T) -> CommentHeader {
     let stream_serial = packet.stream_serial();
 
     let mut packet: Packet = reader.read_packet_expected().unwrap();
-    //println!("{:?}",packet.data);
+
     while packet.stream_serial() != stream_serial {
         packet = reader.read_packet_expected().unwrap();
-        //println!("{:?}",packet.data);
     }
 
     lewton::header::read_header_comment(&packet.data).unwrap()
